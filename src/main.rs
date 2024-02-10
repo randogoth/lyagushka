@@ -48,6 +48,12 @@ fn distance(p1: &Point, p2: &Point) -> u32 {
     }
 }
 
+fn gap_distances(dataset: &[Point]) -> Vec<f32> {
+    dataset.windows(2)
+           .map(|pair| distance(&pair[0], &pair[1]) as f32)
+           .collect()
+}
+
 fn mean(values: &[f32]) -> f32 {
     values.iter().sum::<f32>() / values.len() as f32
 }
@@ -57,25 +63,26 @@ fn std_dev(values: &[f32], mean: f32) -> f32 {
     variance.sqrt()
 }
 
-fn mark_repellers(dataset: &mut [Point], mean_distance: f32, std_dev_distance: f32) {
-    let dataset_len = dataset.len();
-    for i in 0..dataset_len {
-        // Temporarily take out the point to avoid borrowing issues
-        let point = std::mem::replace(&mut dataset[i], Point::new(0));
-        let distances: Vec<f32> = (0..dataset_len)
-            .filter(|&j| j != i) // Ensure we're not comparing the point to itself
-            .map(|j| distance(&point, &dataset[j]) as f32)
-            .collect();
-        // Put the point back
-        dataset[i] = point;
+fn mark_voids(dataset: &[Point], mean_distance: f32, factor: f32, z_score_threshold: f32, std_dev_distance: f32) -> Vec<(f32, f32)> {
+    let significant_gap_distance = 2.0 * factor * mean_distance;
+    let mut voids = Vec::new();
 
-        if let Some(&min_distance) = distances.iter().min_by(|a, b| a.partial_cmp(b).unwrap()) {
-            let z_score = (min_distance - mean_distance) / std_dev_distance;
-            if z_score.abs() > 1.0 { // Arbitrary Z-score threshold for repellers
-                dataset[i].z_score = Some(-z_score);
+    for i in 0..dataset.len() - 1 {
+        let gap_distance = distance(&dataset[i], &dataset[i + 1]) as f32;
+        if gap_distance >= significant_gap_distance {
+            // Calculate the midpoint of the gap
+            let midpoint = (dataset[i].value as f32 + dataset[i + 1].value as f32) / 2.0;
+
+            // Calculate Z-score for the gap based on its deviation from the mean distance
+            let z_score = (gap_distance - mean_distance) / std_dev_distance;
+
+            if z_score > z_score_threshold {
+                voids.push((midpoint, z_score));
             }
         }
     }
+
+    voids
 }
 
 
@@ -99,16 +106,19 @@ fn expand_cluster(dataset: &mut [Point], core_index: usize, cluster_id: usize, m
     }
 }
 
-fn dbscan(dataset: &mut [Point], min_cluster_size: usize, factor: f32) {
-    let mean_distance = calculate_mean_distance(dataset);
-    let distances: Vec<f32> = dataset.windows(2)
-        .map(|w| distance(&w[0], &w[1]) as f32)
-        .collect();
-    let mean_val = mean(&distances);
-    let std_dev_distance = std_dev(&distances, mean_val);
-    let max_distance = mean_distance * factor;
+fn dbscan(dataset: &mut [Point], min_cluster_size: usize, factor: f32, z_score_threshold: f32) {
+    let gaps = gap_distances(dataset); // Calculate gap distances
+    let mean_gap_distance = mean(&gaps); // Calculate the mean of gap distances
+    let std_dev_gap_distance = std_dev(&gaps, mean_gap_distance); // Calculate std dev of gap distances
+    let max_distance = mean_gap_distance * (1.0 / factor);
 
-    mark_repellers(dataset, mean_distance, std_dev_distance);
+    // Adjusted call to mark_voids to use std_dev_gap_distance
+    let voids = mark_voids(dataset, mean_gap_distance, factor, z_score_threshold, std_dev_gap_distance);
+
+    // Now you can use the voids information
+    for (midpoint, z_score) in voids {
+        println!("void Midpoint: {}, Z-Score: {}", midpoint, z_score);
+    }
 
     let mut cluster_id = 0;
     for idx in 0..dataset.len() {
@@ -158,18 +168,19 @@ fn main() -> io::Result<()> {
     let mut dataset = load_dataset(filename)?;
 
     let min_cluster_size = 7; // Adjust as needed
-    let factor = 0.6; // Adjust as needed
+    let factor = 1.6; // Adjust as needed
+    let z_score_threshold = 1.6; // Define your Z-score threshold here
 
-    dbscan(&mut dataset, min_cluster_size, factor);
+    dbscan(&mut dataset, min_cluster_size, factor, z_score_threshold);
 
     // Calculate Z-scores for centroids of dense clusters
     let centroids_z_scores = calculate_centroids_z_scores(&dataset);
 
-    // Iterate through the dataset to print repellers
+    // Iterate through the dataset to print voids
     for point in &dataset {
         if let Some(z_score) = point.z_score {
-            if z_score < 0.0 { // Assuming negative Z-scores indicate repellers
-                println!("Repeller: {}, Z-Score: {}", point.value, z_score);
+            if z_score < 0.0 { // Assuming negative Z-scores indicate voids
+                println!("void: {}, Z-Score: {}", point.value, z_score);
             }
         }
     }
