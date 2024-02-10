@@ -1,7 +1,11 @@
 use std::fs::File;
 use std::io::{self, BufRead, BufReader};
+use std::env;
+use std::process;
+use serde::Serialize;
+use serde_json;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize)]
 struct Point {
     value: u32,
 }
@@ -12,7 +16,7 @@ impl Point {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 struct ClusterGapInfo {
     span_length: f32, // Full span length
     num_elements: usize, // Number of elements, 0 for gaps
@@ -132,11 +136,17 @@ fn calculate_z_scores(densities: &[f32], mean: f32, std_dev: f32) -> Vec<f32> {
 }
 
 fn main() -> io::Result<()> {
-    let filename = "random_values.txt";
-    let dataset = load_dataset(filename)?;
+    let args: Vec<String> = env::args().collect();
+    if args.len() < 4 {
+        eprintln!("Usage: {} <filename> <factor> <min_cluster_size>", args[0]);
+        process::exit(1);
+    }
 
-    let factor = 3.8;
-    let min_cluster_size = 7;
+    let filename = &args[1];
+    let factor: f32 = args[2].parse().expect("Factor must be a float");
+    let min_cluster_size: usize = args[3].parse().expect("Min cluster size must be an integer");
+
+    let dataset = load_dataset(filename)?;
 
     let mut cluster_gap_infos = calculate_densities_and_gaps(&dataset, factor, min_cluster_size);
 
@@ -159,12 +169,11 @@ fn main() -> io::Result<()> {
         }
     }
 
-    // Output results with distinction between clusters and gaps
-    for (index, info) in cluster_gap_infos.iter().enumerate() {
-        let element_type = if info.num_elements > 0 { "Cluster" } else { "Gap" };
-        println!("Num Elements: {}, Centroid: {:.2}, Z-Score: {:.2}, Span: {:.2}, ", 
-                info.num_elements, info.centroid, info.z_score.unwrap_or(0.0), info.span_length);
-    }
+    // Convert cluster_gap_infos to JSON
+    let json = serde_json::to_string_pretty(&cluster_gap_infos).expect("Failed to serialize to JSON");
+
+    // Output the JSON string
+    println!("{}", json);
 
     Ok(())
 }
