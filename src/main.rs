@@ -1,5 +1,5 @@
 use std::fs::File;
-use std::io::{self, BufRead, BufReader};
+use std::io::{self, BufRead, BufReader, stdin, Read};
 use std::env;
 use std::process;
 use serde::Serialize;
@@ -102,51 +102,38 @@ fn create_cluster_info(cluster: &[Point]) -> ClusterGapInfo {
     }
 }
 
-// Adjust the main function and subsequent calculations to work with the new structure and calculate Z-scores accordingly
-
-
-fn calculate_cluster_density(cluster: &[u32]) -> f32 {
-    if cluster.len() < 2 { return 0.0; } // Adjust based on how you define density for single-element clusters
-
-    let &max_value = cluster.iter().max().unwrap();
-    let &min_value = cluster.iter().min().unwrap();
-    let span = (max_value - min_value) as f32;
-    if span == 0.0 {
-        return cluster.len() as f32; // Handle clusters where all points have the same value
-    }
-    cluster.len() as f32 / span
-}
-
-// Assume distance function is defined as before
-
-
 fn distance(p1: &Point, p2: &Point) -> u32 {
     if p1.value > p2.value { p1.value - p2.value } else { p2.value - p1.value }
 }
 
-
-fn calculate_mean_and_std_dev(densities: &[f32]) -> (f32, f32) {
-    let mean = densities.iter().sum::<f32>() / densities.len() as f32;
-    let variance = densities.iter().map(|&v| (v - mean).powi(2)).sum::<f32>() / densities.len() as f32;
-    (mean, variance.sqrt())
-}
-
-fn calculate_z_scores(densities: &[f32], mean: f32, std_dev: f32) -> Vec<f32> {
-    densities.iter().map(|&density| (density - mean) / std_dev).collect()
-}
-
 fn main() -> io::Result<()> {
     let args: Vec<String> = env::args().collect();
-    if args.len() < 4 {
-        eprintln!("Usage: {} <filename> <factor> <min_cluster_size>", args[0]);
-        process::exit(1);
+    let mut dataset: Vec<Point> = Vec::new();
+
+    // Check if data is being piped into the program
+    if atty::is(atty::Stream::Stdin) {
+        // Not receiving piped input, expect filename as argument
+        if args.len() < 4 {
+            eprintln!("Usage: {} <filename> <factor> <min_cluster_size>", args[0]);
+            eprintln!("Or pipe in a list of integers and provide <factor> <min_cluster_size>");
+            process::exit(1);
+        }
+
+        let filename = &args[1];
+        dataset = load_dataset(filename)?;
+    } else {
+        // Receiving piped input, read from stdin
+        let stdin = io::stdin();
+        let reader = stdin.lock();
+        for line in reader.lines() {
+            let value: u32 = line?.trim().parse().unwrap();
+            dataset.push(Point::new(value));
+        }
+        dataset.sort_by_key(|p| p.value);
     }
 
-    let filename = &args[1];
-    let factor: f32 = args[2].parse().expect("Factor must be a float");
-    let min_cluster_size: usize = args[3].parse().expect("Min cluster size must be an integer");
-
-    let dataset = load_dataset(filename)?;
+    let factor: f32 = args[args.len() - 2].parse().expect("Factor must be a float");
+    let min_cluster_size: usize = args[args.len() - 1].parse().expect("Min cluster size must be an integer");
 
     let mut cluster_gap_infos = calculate_densities_and_gaps(&dataset, factor, min_cluster_size);
 
