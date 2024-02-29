@@ -1,5 +1,9 @@
+use pyo3::prelude::*;
+use pyo3::wrap_pyfunction;
+use pyo3::types::PyList;
 use std::fs::File;
-use std::io::{self, BufRead, BufReader, stdin, Read};
+// use std::io::{self, BufRead, BufReader, stdin, Read};
+use std::io::{self, BufRead, BufReader};
 use std::env;
 use std::process;
 use serde::Serialize;
@@ -106,6 +110,7 @@ fn distance(p1: &Point, p2: &Point) -> u32 {
     if p1.value > p2.value { p1.value - p2.value } else { p2.value - p1.value }
 }
 
+
 fn main() -> io::Result<()> {
     let args: Vec<String> = env::args().collect();
     let mut dataset: Vec<Point> = Vec::new();
@@ -162,5 +167,50 @@ fn main() -> io::Result<()> {
     // Output the JSON string
     println!("{}", json);
 
+    Ok(())
+}
+
+#[pyfunction]
+fn traktor(py: Python, int_list: &PyList, factor: f32, min_cluster_size: usize) -> PyResult<String> {
+    // Convert Python list to Rust Vec<Point>
+    let mut dataset: Vec<Point> = Vec::new();
+    for py_any in int_list.into_iter() {
+        let value: u32 = py_any.extract()?;
+        dataset.push(Point::new(value));
+    }
+    dataset.sort_by_key(|p| p.value);
+
+    // Proceed with your existing logic
+    let mut cluster_gap_infos = calculate_densities_and_gaps(&dataset, factor, min_cluster_size);
+
+    // Calculate mean distance for Z-score computation
+    let total_distances: f32 = dataset.windows(2)
+                                      .map(|w| (w[1].value as f32 - w[0].value as f32))
+                                      .sum();
+    let mean_distance = total_distances / (dataset.len() as f32 - 1.0);
+
+    // Calculate Z-scores for clusters and gaps
+    for info in cluster_gap_infos.iter_mut() {
+        if info.num_elements == 0 {
+            // Z-score for gaps
+            info.z_score = Some((info.span_length - mean_distance) / mean_distance); // Simplified deviation measure
+        } else {
+            // Z-score for clusters, based on density deviation
+            let density = info.num_elements as f32 / info.span_length;
+            let expected_density = 1.0 / mean_distance; // Expected: one element per mean distance
+            info.z_score = Some((density - expected_density) / expected_density); // Simplified deviation measure
+        }
+    }
+
+    // Serialize to JSON and return
+    let json = serde_json::to_string_pretty(&cluster_gap_infos)
+        .expect("Failed to serialize to JSON");
+        
+    Ok(json)
+}
+
+#[pymodule]
+fn lyagushka(py: Python, m: &PyModule) -> PyResult<()> {
+    m.add_function(wrap_pyfunction!(traktor, m)?)?;
     Ok(())
 }
