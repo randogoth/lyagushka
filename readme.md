@@ -8,8 +8,10 @@ It is an algorithm that analyzes a one-dimensional dataset of integers to identi
 
 ## Building
 
+With a Rust and Cargo environment set up, simply run:
+
 ```sh
-$ cargo build
+$ cargo build --release
 ```
 
 ## Usage
@@ -27,26 +29,26 @@ The tool outputs a JSON string that includes details about the identified attrac
 ```json
 
 [
-  ...
+  //...
   {
-        "elements": [ 722, 722, 722, 725, 725, 726, 726, 726],
-        "start": 722,
-        "end": 726,
-        "span_length": 4,
-        "num_elements": 8,
-        "centroid": 724.0,
-        "z_score": 1.19528
-    },
-    {
-        "elements": [],
-        "start": 732,
-        "end": 740,
-        "span_length": 8,
-        "num_elements": 0,
-        "centroid": 736.0,
-        "z_score": -1.13359
-    },
-    ...
+    "elements": [ 722, 722, 722, 725, 725, 726, 726, 726],
+    "start": 722,
+    "end": 726,
+    "span_length": 4,
+    "num_elements": 8,
+    "centroid": 724.0,
+    "z_score": 1.19528
+  },
+  {
+    "elements": [],
+    "start": 732,
+    "end": 740,
+    "span_length": 8,
+    "num_elements": 0,
+    "centroid": 736.0,
+    "z_score": -1.13359
+  },
+  //...
 ]
 ```
 
@@ -54,7 +56,7 @@ The tool outputs a JSON string that includes details about the identified attrac
 
 To analyze a dataset from a file, provide the filename as an argument, followed by the factor and minimum cluster size parameters
 ```sh
-lyagushka filename.txt 1.5 6
+lyagushka random_values.txt 1.5 6
 ```
 (= '*Attractor clusters need to have at least 6 numbers with 1.5 times the mean density, void gaps need to be at leat 1.5 times the mean gap size wide*')
 
@@ -63,6 +65,9 @@ lyagushka filename.txt 1.5 6
 Alternatively, you can pipe a list of integers into the tool, followed by the factor and minimum cluster size.
 
 ```sh
-echo "1\n2\n10\n20" | lyagushka 0.5 2
+cat random_values.txt | lyagushka 0.5 2
 ```
 
+## Python Module
+
+If you need lyagushka in a Python environment, check out the 'Python' branch of this repository
