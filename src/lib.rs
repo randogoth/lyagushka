@@ -2,7 +2,7 @@ use pyo3::prelude::*;
 use pyo3::types::PyList;
 use pyo3::wrap_pyfunction;
 use serde::Serialize;
-use serde_json;
+use serde_json::to_string_pretty;
 
 #[derive(Clone, Debug, Serialize)]
 struct Point {
@@ -106,65 +106,76 @@ fn calculate_densities_and_gaps(dataset: &[Point], factor: f32, min_cluster_size
     results
 }
 
-/// A Python-exposed function that analyzes a list of numerical values to identify clusters and significant gaps,
-/// calculates z-scores for each identified cluster/gap, and returns the analysis results as a JSON string.
-///
-/// This function takes a list of integers (representing a dataset), a factor to adjust clustering and gap detection thresholds,
-/// and a minimum cluster size. It calculates the mean distance and standard deviation across the dataset,
-/// identifies clusters and significant gaps based on these metrics, calculates z-scores for each cluster/gap,
-/// and returns a JSON string representing the analysis results.
+/// Analyzes a dataset of integers to identify clusters and gaps, then calculates Z-scores 
+/// for each based on their deviation from mean metrics. The analysis aims to highlight 
+/// significant clusters of closely grouped points and notable gaps between them, providing 
+/// a statistical measure of their significance through Z-scores. The results, including 
+/// clusters, gaps, and their Z-scores, are serialized into a JSON string.
 ///
 /// # Arguments
-/// * `_py`: The Python interpreter, used for Python-Rust interactions. Not directly used in the function body.
-/// * `int_list`: A Python list of integers representing the dataset to be analyzed.
-/// * `factor`: A floating-point value used to adjust the sensitivity of cluster and gap detection.
-///   Lower values result in tighter clustering and wider gaps, while higher values do the opposite.
-/// * `min_cluster_size`: The minimum number of contiguous points required to be considered a cluster.
+/// * `_py` - The Python interpreter instance, used for Python-Rust interoperability. 
+///     This argument is necessary for functions exposed to Python via PyO3 but is not 
+///     directly used within the function.
+/// * `int_list` - A Python list of integers representing the dataset to be analyzed. 
+///     This list is converted into a Vec<Point> for internal processing.
+/// * `factor` - A floating-point value used as a threshold factor to adjust the sensitivity 
+///     of cluster and gap detection. This factor influences the identification of clusters 
+///     by defining the minimum density or separation required.
+/// * `min_cluster_size` - An integer specifying the minimum number of contiguous points 
+///     required for a group of points to be considered a cluster. This parameter helps 
+///     filter out noise by defining a threshold for the minimum cluster size.
 ///
 /// # Returns
-/// A `PyResult<String>` which is either:
-/// * Ok containing a JSON-formatted string of the analysis results, including clusters and gaps with their z-scores.
-/// * Err containing a Python exception if an error occurs during processing or JSON serialization.
+/// Returns a `PyResult<String>` containing a JSON-formatted string of the analysis results. 
+/// The JSON string includes detailed information about each identified cluster and gap, 
+/// such as their span length, number of elements (if applicable), centroid, and calculated 
+/// Z-score. In case of an error during processing or serialization, a Python exception is 
+/// returned.
 ///
 #[pyfunction]
 fn lyagushka(_py: Python, int_list: &PyList, factor: f32, min_cluster_size: usize) -> PyResult<String> {
-    
-    // Convert the Python list of integers into a Rust Vec of Point structs.
-    let dataset: Vec<Point> = int_list.into_iter()
-                                      .map(|py_any| py_any.extract::<u32>().map(Point::new))
-                                      .collect::<PyResult<Vec<Point>>>()?;
+    // Extract integers from a Python list and create a vector of Point structs.
+    let dataset: Vec<Point> = int_list.extract::<Vec<u32>>()?
+                                      .into_iter()
+                                      .map(Point::new)
+                                      .collect();
 
-    // Analyze the dataset to identify clusters and significant gaps.
+    // Calculate clusters and gaps from the dataset using predefined criteria.
     let mut cluster_gap_infos = calculate_densities_and_gaps(&dataset, factor, min_cluster_size);
 
-    // Calculate the mean distance between consecutive points in the dataset.
-    let mean_distance: f32 = dataset.windows(2)
-                                    .map(|w| w[1].value as f32 - w[0].value as f32)
-                                    .sum::<f32>() / (dataset.len() - 1) as f32;
+    // Calculate the mean density of clusters in the dataset for comparison.
+    let mean_density: f32 = cluster_gap_infos.iter()
+                                             .filter(|info| info.num_elements > 0)
+                                             .map(|info| info.num_elements as f32 / info.span_length)
+                                             .sum::<f32>() / cluster_gap_infos.iter().filter(|info| info.num_elements > 0).count() as f32;
 
-    // Calculate the standard deviation of distances between consecutive points.
-    let std_deviation: f32 = (dataset.windows(2)
-                                      .map(|w| w[1].value as f32 - w[0].value as f32 - mean_distance)
-                                      .map(|d| d * d)
-                                      .sum::<f32>() / (dataset.len() - 1) as f32)
-                                      .sqrt();
+    // Calculate the standard deviation of cluster densities to evaluate variation.
+    let variance_density: f32 = cluster_gap_infos.iter()
+                                                 .filter(|info| info.num_elements > 0)
+                                                 .map(|info| info.num_elements as f32 / info.span_length)
+                                                 .map(|density| (density - mean_density).powi(2))
+                                                 .sum::<f32>() / cluster_gap_infos.iter().filter(|info| info.num_elements > 0).count() as f32;
+    let std_dev_density = variance_density.sqrt();
 
-    // Calculate and assign z-scores for each cluster/gap based on their centroid or span length.
-    for info in cluster_gap_infos.iter_mut() {
-        info.z_score = Some(if info.num_elements > 0 {
-            // For clusters, use the centroid for z-score calculation.
-            (info.centroid - mean_distance) / std_deviation
+    // Calculate the average span of all clusters and gaps to assess gap significance.
+    let average_span: f32 = cluster_gap_infos.iter().map(|info| info.span_length).sum::<f32>() / cluster_gap_infos.len() as f32;
+
+    // Update Z-scores for both clusters and gaps based on their deviation from mean metrics.
+    for info in &mut cluster_gap_infos {
+        if info.num_elements > 0 {
+            // Calculate and update Z-score for clusters based on density deviation.
+            let cluster_density = info.num_elements as f32 / info.span_length;
+            info.z_score = Some((cluster_density - mean_density) / std_dev_density);
         } else {
-            // For gaps, use the span length for z-score calculation.
-            (info.span_length - mean_distance) / std_deviation
-        });
+            // Calculate and update Z-score for gaps based on span length deviation.
+            info.z_score = Some((info.span_length - average_span) / std_dev_density);
+        }
     }
 
-    // Serialize the analysis results into a JSON string and return it.
-    serde_json::to_string_pretty(&cluster_gap_infos)
+    // Serialize the updated cluster and gap information, including Z-scores, to a JSON string.
+    to_string_pretty(&cluster_gap_infos)
         .map_err(|e| PyErr::new::<pyo3::exceptions::PyException, _>(format!("JSON Serialization Error: {}", e)))
 }
-
 
 #[pymodule]
 fn pyagushka(_py: Python, m: &PyModule) -> PyResult<()> {
