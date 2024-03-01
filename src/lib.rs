@@ -167,7 +167,7 @@ fn lyagushka(_py: Python, int_list: &PyList, factor: f32, min_cluster_size: usiz
 
 
 #[pymodule]
-fn lyagushka_module(_py: Python, m: &PyModule) -> PyResult<()> {
+fn pyagushka(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(lyagushka, m)?)?;
     Ok(())
 }
