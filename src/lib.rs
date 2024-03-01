@@ -64,7 +64,7 @@ fn calculate_densities_and_gaps(dataset: &[Point], factor: f32, min_cluster_size
 
     // Define thresholds for clustering and gap identification based on the mean distance and factor.
     let cluster_threshold = mean_distance / factor;
-    let gap_threshold = factor * mean_distance * 2.0;
+    let gap_threshold = factor * mean_distance;
 
     let mut results: Vec<ClusterGapInfo> = Vec::new(); // Stores the resulting clusters and gaps.
     let mut current_cluster: Vec<Point> = Vec::new(); // Temporary storage for points in the current cluster.
@@ -134,11 +134,16 @@ fn calculate_densities_and_gaps(dataset: &[Point], factor: f32, min_cluster_size
 ///
 #[pyfunction]
 fn lyagushka(_py: Python, int_list: &PyList, factor: f32, min_cluster_size: usize) -> PyResult<String> {
+    
     // Extract integers from a Python list and create a vector of Point structs.
-    let dataset: Vec<Point> = int_list.extract::<Vec<u32>>()?
+    let mut dataset: Vec<Point> = int_list.extract::<Vec<u32>>()?
                                       .into_iter()
                                       .map(Point::new)
                                       .collect();
+
+    
+    // Sort the vector
+    dataset.sort_by_key(|p| p.value);
 
     // Calculate clusters and gaps from the dataset using predefined criteria.
     let mut cluster_gap_infos = calculate_densities_and_gaps(&dataset, factor, min_cluster_size);

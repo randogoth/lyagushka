@@ -35,40 +35,32 @@ dataset.sort()
 
 # calculate the anomalies in the data
 analysis_results = json.loads(lyagushka(dataset, 3.0, 7))
-print(analysis_results)
-print(len(analysis_results))
 
 # Initialize plot
 plt.figure(figsize=(10, 6))
 
-# Plot dataset points
-for point in dataset:
-    plt.plot(point, 0, 'ko')  # Plot dataset as black dots at y=0
+# Color palette for clusters and gaps
+colors = plt.cm.jet(np.linspace(0, 1, len(analysis_results)))
 
-# Process each cluster/gap for plotting
-for result in analysis_results:
+# Plot dataset points and assign colors based on cluster membership
+for i, result in enumerate(analysis_results):
     if result['num_elements'] > 0:  # It's a cluster
-        color = 'blue'  # Color for clusters
-    else:  # It's a gap
-        color = 'green'  # Color for gaps
+        points_in_cluster = [point for point in dataset if 
+                             result['centroid'] - result['span_length'] / 2 <= point <= 
+                             result['centroid'] + result['span_length'] / 2]
+        for point in points_in_cluster:
+            plt.plot(point, 0, 'o', color=colors[i])  # Plot points in cluster with the same color
 
-    # Generate start and end points for the segment
+    # Plot a line segment for the cluster/gap Z-score in the same color
     start = result['centroid'] - result['span_length'] / 2
     end = result['centroid'] + result['span_length'] / 2
     z_score = result['z_score'] if result['z_score'] is not None else 0
-
-    # Plot a line segment for the cluster/gap
-    plt.plot([start, end], [z_score, z_score], color=color, linewidth=2)
+    plt.plot([start, end], [z_score, z_score], color=colors[i], linewidth=2)
 
 # Enhancements for visualization
 plt.xlabel('Integer Value')
 plt.ylabel('Z-Score')
-plt.title('Cluster and Gap Analysis with Distinct Z-Score Curves')
+plt.title('Cluster and Gap Analysis')
 plt.grid(True)
-
-# Custom legend
-plt.plot([], [], color='blue', label='Clusters')
-plt.plot([], [], color='green', label='Gaps')
-plt.legend()
 
 plt.show()
