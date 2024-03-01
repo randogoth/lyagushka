@@ -1,61 +1,76 @@
-# lyagushka
+# pyagushka - a Python module for lyagushka
 
-(Russian лягушка: frog)
+(Russian лягушка [lʲɪˈɡuʂkə]: frog)
 
-Cluster and Gap Analysis Tool inspired by Fatum Project's 'Zhaba' algorithm (Russian 'жаба': toad) that finds attractor clusters in lists of integers.
+Pyagushka is a Python module based on the Rust algorithm lyagushka that is inspired by Fatum Project's ['Zhaba' algorithm](https://gist.github.com/randogoth/ab5ab9e8665303be176f16241e7b26b5) (Russian 'жаба': toad) and expands upon it for more versatility.
 
-This Rust command-line tool analyzes a dataset of integers to identify clusters of closely grouped points and significant gaps between these clusters. It calculates z-scores for each cluster or gap to measure their statistical significance relative to the dataset's mean distance. The analysis results, including clusters, gaps, and their z-scores, are output as a JSON string.
+It is an algorithm that analyzes a one-dimensional dataset of integers to identify clusters of closely grouped "attractor" points and significant "void" gaps between these clusters. It calculates z-scores for each cluster or gap to measure their statistical significance relative to the dataset's mean density and distance between points. The analysis results, including attractors, voids, and their z-scores, are output as a JSON string.
 
-## Features
+## Building
 
-- **Cluster Identification**: Identifies groups of points that are closely spaced together based on a customizable threshold.
-- **Gap Detection**: Detects significant gaps between clusters, providing insights into the dataset's distribution.
-- **Z-Score Calculation**: Calculates z-scores for both clusters and gaps, offering a statistical measure of their deviation from the mean distance.
-- **Flexible Input**: Accepts input data either from a file specified as a command-line argument or piped directly into stdin.
-- **JSON Output**: Outputs the analysis results in a readable JSON format, making it easy to interpret or use in further processing.
+With a Rust/Cargo and Python3/Pip environment set up, run:
+
+```sh
+$ pip install maturin
+$ maturin build --release
+$ pip install target/wheels/pyagushka-1.0.0-*.whl
+```
 
 ## Usage
 
-### From a File
+### Parameters
 
-To analyze a dataset from a file, provide the filename as an argument along with two additional parameters: the factor for adjusting clustering and gap detection thresholds, and the minimum cluster size.
-
-```sh
-cargo run -- filename.txt 0.5 2
-```
-
-### From Stdin
-
-Alternatively, you can pipe a list of integers into the tool, followed by the factor and minimum cluster size.
-
-```sh
-echo "1\n2\n10\n20" | cargo run -- 0.5 2
-```
-
-#### Parameters
-
-*  `filename.txt` (optional): A file containing a newline-separated list of integers to analyze. If not provided, the program expects input from stdin.
-*  `factor`: A floating-point value used to fine-tune the sensitivity of cluster and gap detection. Lower values result in tighter clusters and wider gaps, while higher values do the opposite.
+*  `dataset`: list of integers representing the dataset to be analyzed.
+*  `factor`: A floating-point value by which the mean density/span is multiplied to make up a threshold for attractor and void detection.
 *  `min_cluster_size`: An integer specifying the minimum number of contiguous points required to be considered a cluster.
 
 ### Output
 
-The tool outputs a JSON string that includes details about the identified clusters and gaps, along with their respective z-scores. Here's an example of the JSON output format:
+The tool outputs a JSON string that includes details about the identified attractors and voids, along with their respective z-scores. Here's an example of the JSON output format:
 
 ```json
 
 [
+  //...
   {
-    "span_length": 1.0,
-    "num_elements": 2,
-    "centroid": 1.5,
-    "z_score": -1.23
+    "elements": [ 722, 722, 722, 725, 725, 726, 726, 726],
+    "start": 722,
+    "end": 726,
+    "span_length": 4,
+    "num_elements": 8,
+    "centroid": 724.0,
+    "z_score": 1.19528
   },
   {
-    "span_length": 8.0,
+    "elements": [],
+    "start": 732,
+    "end": 740,
+    "span_length": 8,
     "num_elements": 0,
-    "centroid": 6.0,
-    "z_score": 2.45
-  }
+    "centroid": 736.0,
+    "z_score": -1.13359
+  },
+  //...
 ]
 ```
+
+### Example
+
+To analyze a dataset from a file, provide the filename as an argument, followed by the factor and minimum cluster size parameters
+```Python
+from pyagushka import lyagushka
+
+dataset = []
+with open('random_values.txt', 'r') as file:
+    for line in file:
+        random_data.append(int(line.strip()))
+
+analysis_results = json.loads(lyagushka(dataset, 4.0, 7))
+
+print(analysis_result)
+```
+(= '*Attractor clusters need to have at least 7 numbers with 4.0 times the mean density, void gaps need to be at leat 4.0 times the mean gap size wide*')
+
+## CLI
+
+If you need lyagushka as a command line tool, check out the 'main' branch of this repository

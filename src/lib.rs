@@ -41,7 +41,7 @@ fn anomaly_info(cluster: &[i32]) -> Anomaly {
 /// that exceed a certain threshold. Each cluster or significant gap identified is summarized in a `Anomaly` object.
 ///
 /// # Arguments
-/// * `dataset`: A slice of `Point` objects representing the dataset to be analyzed.
+/// * `dataset`: A slice of `i32` objects representing the dataset to be analyzed.
 /// * `factor`: A multiplier used to define the thresholds for clustering and gap identification. 
 ///   A lower factor tightens the cluster threshold and widens the gap threshold, and vice versa.
 /// * `min_cluster_size`: The minimum number of points required for a group of points to be considered a cluster.
