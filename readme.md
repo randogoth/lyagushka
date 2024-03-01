@@ -2,7 +2,9 @@
 
 (Russian лягушка [lʲɪˈɡuʂkə]: frog)
 
-Lyagushka is a Rust command-line tool inspired by Fatum Project's 'Zhaba' algorithm (Russian 'жаба': toad) that analyzes a one-dimensional dataset of integers to identify clusters of closely grouped "attractor" points and significant "void" gaps between these clusters. It calculates z-scores for each cluster or gap to measure their statistical significance relative to the dataset's mean density and distance between points. The analysis results, including attractors, voids, and their z-scores, are output as a JSON string.
+Lyagushka is a Rust command-line tool inspired by Fatum Project's ['Zhaba' algorithm](https://gist.github.com/randogoth/ab5ab9e8665303be176f16241e7b26b5) (Russian 'жаба': toad) and expands upon it for more versatility.
+
+It is an algorithm that analyzes a one-dimensional dataset of integers to identify clusters of closely grouped "attractor" points and significant "void" gaps between these clusters. It calculates z-scores for each cluster or gap to measure their statistical significance relative to the dataset's mean density and distance between points. The analysis results, including attractors, voids, and their z-scores, are output as a JSON string.
 
 ## Building
 
@@ -20,23 +22,31 @@ $ cargo build
 
 ### Output
 
-The tool outputs a JSON string that includes details about the identified clusters and gaps, along with their respective z-scores. Here's an example of the JSON output format:
+The tool outputs a JSON string that includes details about the identified attractors and voids, along with their respective z-scores. Here's an example of the JSON output format:
 
 ```json
 
 [
+  ...
   {
-    "span_length": 1.0,
-    "num_elements": 2,
-    "centroid": 1.5,
-    "z_score": -1.23
-  },
-  {
-    "span_length": 8.0,
-    "num_elements": 0,
-    "centroid": 6.0,
-    "z_score": 2.45
-  }
+        "elements": [ 722, 722, 722, 725, 725, 726, 726, 726],
+        "start": 722,
+        "end": 726,
+        "span_length": 4,
+        "num_elements": 8,
+        "centroid": 724.0,
+        "z_score": 1.19528
+    },
+    {
+        "elements": [],
+        "start": 732,
+        "end": 740,
+        "span_length": 8,
+        "num_elements": 0,
+        "centroid": 736.0,
+        "z_score": -1.13359
+    },
+    ...
 ]
 ```
 
