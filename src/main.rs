@@ -127,38 +127,36 @@ fn calculate_densities_and_gaps(dataset: &[Point], factor: f32, min_cluster_size
 ///
 fn lyagushka(dataset: Vec<Point>, factor: f32, min_cluster_size: usize) -> String {
 
-    // Analyze the dataset to identify clusters and significant gaps.
+    // Calculate clusters and gaps from the dataset using predefined criteria.
     let mut cluster_gap_infos = calculate_densities_and_gaps(&dataset, factor, min_cluster_size);
 
-    // Calculate the mean distance between consecutive points in the dataset.
-    let mean_distance: f32 = if dataset.len() > 1 {
-        dataset.windows(2)
-            .map(|w| w[1].value as f32 - w[0].value as f32)
-            .sum::<f32>() / (dataset.len() - 1) as f32
-    } else {
-        0.0
-    };
+    // Calculate the mean density of clusters in the dataset for comparison.
+    let mean_density: f32 = cluster_gap_infos.iter()
+                                             .filter(|info| info.num_elements > 0)
+                                             .map(|info| info.num_elements as f32 / info.span_length)
+                                             .sum::<f32>() / cluster_gap_infos.iter().filter(|info| info.num_elements > 0).count() as f32;
 
-    // Calculate the standard deviation of distances between consecutive points.
-    let std_deviation: f32 = if dataset.len() > 1 {
-        (dataset.windows(2)
-            .map(|w| w[1].value as f32 - w[0].value as f32 - mean_distance)
-            .map(|d| d.powi(2))
-            .sum::<f32>() / (dataset.len() - 1) as f32)
-        .sqrt()
-    } else {
-        0.0
-    };
+    // Calculate the standard deviation of cluster densities to evaluate variation.
+    let variance_density: f32 = cluster_gap_infos.iter()
+                                                 .filter(|info| info.num_elements > 0)
+                                                 .map(|info| info.num_elements as f32 / info.span_length)
+                                                 .map(|density| (density - mean_density).powi(2))
+                                                 .sum::<f32>() / cluster_gap_infos.iter().filter(|info| info.num_elements > 0).count() as f32;
+    let std_dev_density = variance_density.sqrt();
 
-    // Calculate and assign z-scores for each cluster/gap based on their centroid or span length.
-    for info in cluster_gap_infos.iter_mut() {
-        info.z_score = Some(if info.num_elements > 0 {
-            // For clusters, use the centroid for z-score calculation.
-            (info.centroid - mean_distance) / std_deviation
+    // Calculate the average span of all clusters and gaps to assess gap significance.
+    let average_span: f32 = cluster_gap_infos.iter().map(|info| info.span_length).sum::<f32>() / cluster_gap_infos.len() as f32;
+
+    // Update Z-scores for both clusters and gaps based on their deviation from mean metrics.
+    for info in &mut cluster_gap_infos {
+        if info.num_elements > 0 {
+            // Calculate and update Z-score for clusters based on density deviation.
+            let cluster_density = info.num_elements as f32 / info.span_length;
+            info.z_score = Some((cluster_density - mean_density) / std_dev_density);
         } else {
-            // For gaps, use the span length for z-score calculation.
-            (info.span_length - mean_distance) / std_deviation
-        });
+            // Calculate and update Z-score for gaps based on span length deviation.
+            info.z_score = Some((info.span_length - average_span) / std_dev_density);
+        }
     }
 
     serde_json::to_string_pretty(&cluster_gap_infos).unwrap_or_else(|_| "Failed to serialize data".to_string())
