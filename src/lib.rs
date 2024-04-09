@@ -34,7 +34,7 @@ impl Anomaly {
 }
 
 #[pyclass]
-struct Lyagushka {
+pub struct Lyagushka {
     dataset: Vec<i32>,
     anomalies: Vec<Anomaly>,
 }
@@ -154,7 +154,7 @@ impl Lyagushka {
 }
 
 #[pymodule]
-fn pyagushka(_py: Python, m: &PyModule) -> PyResult<()> {
+fn lyagushka(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<Lyagushka>()?;
     Ok(())
 }
