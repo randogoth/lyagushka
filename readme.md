@@ -13,7 +13,7 @@ With a Rust/Cargo and Python3/Pip environment set up, run:
 ```sh
 $ pip install maturin
 $ maturin build --release
-$ pip install target/wheels/pyagushka-1.0.0-*.whl
+$ pip install target/wheels/pyagushka-1.1.0-*.whl
 ```
 
 ## Usage
@@ -58,14 +58,15 @@ The tool outputs a JSON string that includes details about the identified attrac
 
 To analyze a dataset from a file, provide the filename as an argument, followed by the factor and minimum cluster size parameters
 ```Python
-from pyagushka import lyagushka
+from pyagushka import Lyagushka
 
 dataset = []
 with open('random_values.txt', 'r') as file:
     for line in file:
         random_data.append(int(line.strip()))
 
-analysis_results = json.loads(lyagushka(dataset, 4.0, 7))
+zhaba = Lyagushka(dataset)
+analysis_results = json.loads(lyagushka.search(4.0, 7))
 
 print(analysis_result)
 ```

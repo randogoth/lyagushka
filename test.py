@@ -1,4 +1,4 @@
-from pyagushka import lyagushka
+from pyagushka import Lyagushka
 from randonautentropy import rndo
 import json
 import matplotlib.pyplot as plt
@@ -41,7 +41,8 @@ with open('dataset.json', 'w') as r:
     r.write(json.dumps(dataset, indent=4))
 
 # calculate the anomalies in the data
-analysis_results = json.loads(lyagushka(dataset, 4.0, 7))
+zhaba = Lyagushka(dataset)
+analysis_results = json.loads(zhaba.search(4.0, 7))
 analysis_results = filter_by_z_score(analysis_results, 1.0)
 
 with open('result.json', 'w') as r:
