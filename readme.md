@@ -14,6 +14,13 @@ With a Rust and Cargo environment set up, simply run:
 $ cargo build --release
 ```
 
+To also compile a Python wheel, you need Maturin set up. SImply run:
+
+```sh
+$ maturin build --release
+$ pip install target/wheels/lyagushka-1.1.0*.whl
+```
+
 ## Usage
 
 ### Parameters
@@ -67,7 +74,3 @@ Alternatively, you can pipe a list of integers into the tool, followed by the fa
 ```sh
 cat random_values.txt | lyagushka 0.5 2
 ```
-
-## Python Module
-
-If you need lyagushka in a Python environment, check out the 'Python' branch of this repository
