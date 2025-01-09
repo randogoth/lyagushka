@@ -11,14 +11,16 @@ It is an algorithm that analyzes a one-dimensional dataset of integers to identi
 With a Rust and Cargo environment set up, simply run:
 
 ```sh
-$ cargo build --release
+cargo build --release
 ```
 
-To also compile a Python wheel, you need Maturin set up. SImply run:
+To also compile a Python wheel, you need Maturin set up:
 
 ```sh
-$ maturin build --release
-$ pip install target/wheels/lyagushka-1.1.0*.whl
+pipenv install
+pipenv shell
+maturin build --release
+pip install target/wheels/lyagushka-1.1.0*.whl
 ```
 
 ## Usage

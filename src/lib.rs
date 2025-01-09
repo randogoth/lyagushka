@@ -154,7 +154,7 @@ impl Lyagushka {
 }
 
 #[pymodule]
-fn lyagushka(_py: Python, m: &PyModule) -> PyResult<()> {
+fn lyagushka(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<Lyagushka>()?;
     Ok(())
 }
